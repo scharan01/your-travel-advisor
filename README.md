@@ -22,4 +22,7 @@ Your Travel Advisor App utilizes the following technologies:
 
 ## Components
 
--**Header**: Contains search bar, date selection and filters -**Map**: Contains the Google Map API component -**Results**: Contains the distance filter and displayed results -**Result**: Contains single result
+- **Header**: Contains search bar, date selection and filters
+- **Map**: Contains the Google Map API component
+- **Results**: Contains the distance filter and displayed results
+- **Result**: Contains single result
