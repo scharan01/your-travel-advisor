@@ -10,7 +10,7 @@ const Container = styled.div``;
 const Content = styled.div`
   padding: 10px;
   width: 95%;
-  height: 71vh;
+  height: 75vh;
   margin: auto;
   display: flex;
   justify-content: space-between;
@@ -49,14 +49,15 @@ const LoadingSpinner = styled.div`
 `;
 
 function App() {
-  const [location, setLocation] = useState(297586);
+  const [location, setLocation] = useState({});
   const [filter, setFilter] = useState("Attractions");
   const [data, setData] = useState([]);
-  const [center, setCenter] = useState({ lat: 17.379908, lng: 78.48787 });
+  const [center, setCenter] = useState({});
   const [loaded, setLoaded] = useState(false);
-  const [locationFound, setLocationFound] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(true);
   const [date, setDate] = useState("");
+  const [radius, setRadius] = useState(5.0);
+  const [filteredData, setFilteredData] = useState([]);
 
   const apikey = "API_KEY";
 
@@ -67,12 +68,15 @@ function App() {
       if (filter === "Restaurants") {
         options = {
           method: "GET",
-          url: "https://travel-advisor.p.rapidapi.com/restaurants/list",
+          url: "https://travel-advisor.p.rapidapi.com/restaurants/list-in-boundary",
           params: {
-            location_id: `${location}`,
+            tr_longitude: `${location.bounds?.[1].longitude}`,
+            tr_latitude: `${location.bounds?.[1].latitude}`,
+            bl_longitude: `${location.bounds?.[0].longitude}`,
+            bl_latitude: `${location.bounds?.[0].latitude}`,
+            limit: "100",
             currency: "USD",
             lunit: "km",
-            limit: "30",
             lang: "en_US",
           },
           headers: {
@@ -83,15 +87,15 @@ function App() {
       } else if (filter === "Hotels") {
         options = {
           method: "GET",
-          url: "https://travel-advisor.p.rapidapi.com/hotels/list",
+          url: "https://travel-advisor.p.rapidapi.com/hotels/list-by-latlng",
           params: {
-            location_id: `${location}`,
-            adults: "1",
-            rooms: "1",
-            currency: "USD",
-            limit: "30",
-            sort: "recommended",
+            latitude: `${location.latitude}`,
+            longitude: `${location.longitude}`,
+
+            limit: "100",
             lang: "en_US",
+            currency: "INR",
+            ...(date !== "" && { checkin: `${date}` }),
           },
           headers: {
             "X-RapidAPI-Key": `${apikey}`,
@@ -101,14 +105,16 @@ function App() {
       } else {
         options = {
           method: "GET",
-          url: "https://travel-advisor.p.rapidapi.com/attractions/list",
+          url: "https://travel-advisor.p.rapidapi.com/attractions/list-in-boundary",
           params: {
-            location_id: `${location}`,
+            tr_longitude: `${location.bounds?.[1].longitude}`,
+            tr_latitude: `${location.bounds?.[1].latitude}`,
+            bl_longitude: `${location.bounds?.[0].longitude}`,
+            bl_latitude: `${location.bounds?.[0].latitude}`,
+            limit: "100",
             currency: "USD",
-            lang: "en_US",
             lunit: "km",
-            limit: "30",
-            sort: "recommended",
+            lang: "en_US",
           },
           headers: {
             "X-RapidAPI-Key": `${apikey}`,
@@ -118,24 +124,27 @@ function App() {
       }
       try {
         const response = await axios.request(options);
-
-        const data2 = response.data.data.filter((data) => data.name);
+        const data2 = response.data.data.filter(
+          (data) => data.name && data.photo && data.rating
+        );
         setData(data2);
+        setFilteredData(data2);
         setLoaded(true);
+        if (data2.length === 0) setError(true);
       } catch (error) {}
     };
 
-    if (locationFound) {
+    if (Object.keys(location).length !== 0) {
       setError(false);
+      setLoaded(false);
       fetchData();
-    } else {
-      setError(true);
     }
-  }, [location, filter]);
+  }, [location, filter, date]);
 
   useEffect(() => {
-    setLoaded(false);
-  }, [filter]);
+    const filtered_data = data.filter((res) => res.distance <= radius);
+    setFilteredData(filtered_data);
+  }, [radius]);
 
   return (
     <Container>
@@ -143,21 +152,34 @@ function App() {
         setLocation={setLocation}
         setFilter={setFilter}
         setCenter={setCenter}
-        setLoaded={setLoaded}
-        setLocationFound={setLocationFound}
-        setError={setError}
         setDate={setDate}
       />
       <Hr></Hr>
       {loaded && !error ? (
         <Content>
-          <Results data={data} filter={filter} />
-          <Map center={center} data={data} filter={filter} />
+          <Results
+            data={filteredData}
+            filter={filter}
+            radius={radius}
+            setRadius={setRadius}
+          />
+          <Map
+            setLocation={setLocation}
+            center={center}
+            data={filteredData}
+            filter={filter}
+            setCenter={setCenter}
+          />
         </Content>
       ) : (
         <LoadingContainer>
-          {!error && <LoadingSpinner />}
-          {error && <h3>Location not found! Check for typos and try again!</h3>}
+          {!loaded && !error && <LoadingSpinner />}
+          {loaded && error && (
+            <h3>
+              Something went wrong(API hasn't responded) please try again!
+            </h3>
+          )}
+          {!loaded && error && <h2>Search for a place to explore nearby!</h2>}
         </LoadingContainer>
       )}
     </Container>

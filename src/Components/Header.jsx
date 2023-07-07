@@ -5,13 +5,15 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useState, useEffect } from "react";
 import axios from "axios";
 import SearchIcon from "@mui/icons-material/Search";
+import { getBoundsOfDistance } from "geolib";
 
 const Container = styled.div`
   margin: auto;
-  padding: 10px;
+  padding: 20px;
+  margin: auto;
   display: flex;
   align-items: center;
-  width: 90%;
+  width: 80%;
   justify-content: space-between;
 `;
 
@@ -78,18 +80,51 @@ const Selection = styled.select`
 
 const Option = styled.option``;
 
-const Header = ({
-  setLocation,
-  setFilter,
-  setCenter,
-  setLoaded,
-  setLocationFound,
-  setError,
-  setDate,
-}) => {
+const Dropdown = styled.div`
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 43px;
+  background-color: white;
+  width: 100%;
+  border-radius: 10px;
+  border: ${(props) => (props.value === "Show" ? "1px solid black" : "none")};
+  max-height: 90vh;
+  overflow: auto;
+  z-index: 3;
+`;
+
+const Dropitem = styled.div`
+  padding: 10px;
+  cursor: pointer;
+  &:hover {
+    background-color: lightgray;
+  }
+`;
+
+const SearchMainContainer = styled.div`
+  // display: flex;
+  // flex-direction: column;
+  position: relative;
+`;
+
+const Title = styled.p`
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 2px;
+`;
+
+const SubTitle = styled.p`
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 2px;
+`;
+
+const Header = ({ setLocation, setFilter, setCenter, setDate }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedValue, setSelectedValue] = useState("");
   const [searchText, setSearchText] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
 
   const apikey = "API_KEY";
 
@@ -105,23 +140,32 @@ const Header = ({
   ));
 
   const handleSearch = (e) => {
-    if (e.key === "Enter") setSearchText(e.target.value.toLowerCase());
+    if (e.target.value.length >= 3) setSearchText(e.target.value.toLowerCase());
+    else {
+      setSearchText("");
+      setSuggestions([]);
+    }
+  };
+
+  const getBounds = (loc) => {
+    try {
+      const bounds = getBoundsOfDistance(
+        { latitude: loc.latitude, longitude: loc.longitude },
+        5000
+      );
+      return bounds;
+    } catch (e) {}
   };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await axios.get(
-          "https://travel-advisor.p.rapidapi.com/locations/search",
+          "https://travel-advisor.p.rapidapi.com/locations/v2/auto-complete",
           {
             params: {
               query: `${searchText}`,
-              limit: "30",
-              offset: "0",
               units: "km",
-              location_id: "1",
-              currency: "USD",
-              sort: "relevance",
               lang: "en_US",
             },
             headers: {
@@ -130,43 +174,60 @@ const Header = ({
             },
           }
         );
-        if (!response.data.data.length) {
-          setLocation("");
-          setLocationFound(false);
-        } else {
-          setLocation(response.data.data[0].result_object.location_id);
-          setLocationFound(true);
-        }
 
-        setCenter({
-          lat: Number(response.data.data[0].result_object.latitude),
-          lng: Number(response.data.data[0].result_object.longitude),
+        const filter_response =
+          response?.data?.data?.Typeahead_autocomplete?.results.filter(
+            (data) => data.detailsV2
+          );
+
+        const searchValues = filter_response.map((data) => {
+          const bounds = getBounds(data.detailsV2.geocode);
+
+          return {
+            Title: data.detailsV2.names.name,
+            SubTitle: data.detailsV2.names.longOnlyHierarchyTypeaheadV2,
+            location: {
+              latitude: data.detailsV2.geocode?.latitude,
+              longitude: data.detailsV2.geocode?.longitude,
+              bounds: bounds,
+            },
+          };
         });
+
+        setSuggestions(searchValues);
       } catch (error) {}
     };
 
-    if (searchText !== "") fetchData();
+    if (searchText !== "") {
+      fetchData();
+    }
   }, [searchText]);
+
+  const handleClick = (sug) => {
+    setLocation(sug.location);
+    setCenter({
+      lat: sug.location.latitude,
+      lng: sug.location.longitude,
+    });
+    setSuggestions([]);
+  };
 
   useEffect(() => {
-    setError(false);
-    setLoaded(false);
-    setDate("");
-  }, [searchText]);
+    const convertDate = () => {
+      const currdate = new window.Date();
+      let prevdate = new window.Date();
+      prevdate.setDate(currdate.getDate() - 1);
 
-  /*useEffect(() => {
-    const convertDate = (date) => {
-      const ndate = new Date(date);
+      const ndate = new window.Date(selectedDate);
       const year = ndate.getFullYear();
       const month = String(ndate.getMonth() + 1).padStart(2, "0");
       const day = String(ndate.getDate()).padStart(2, "0");
       const formattedDate = `${year}-${month}-${day}`;
-
-      setDate(formattedDate);
-      console.log(formattedDate);
+      if (ndate > prevdate) setDate(formattedDate);
     };
+
     convertDate();
-  }, [selectedDate]);*/
+  }, [selectedDate]);
 
   return (
     <Container>
@@ -179,14 +240,25 @@ const Header = ({
           customInput={<CustomInput />}
         />
       </Calender>
-      <SearchContainer>
-        <SearchIcon />
-        <SearchBar placeholder="Where to?" onKeyDown={(e) => handleSearch(e)} />
-      </SearchContainer>
+      <SearchMainContainer>
+        <SearchContainer>
+          <SearchIcon />
+          <SearchBar placeholder="Where to?" onChange={handleSearch} />
+        </SearchContainer>
+        <Dropdown value={suggestions.length != 0 ? "Show" : "none"}>
+          {suggestions?.map((sug) => {
+            return (
+              <Dropitem onClick={() => handleClick(sug)}>
+                <Title>{sug.Title}</Title>
+                <SubTitle>{sug.SubTitle}</SubTitle>
+              </Dropitem>
+            );
+          })}
+        </Dropdown>
+      </SearchMainContainer>
 
       <Filter>
         <FilterText>Filters</FilterText>
-
         <Selection value={selectedValue} onChange={handleDropdownChange}>
           <Option default value="Attractions">
             Attractions

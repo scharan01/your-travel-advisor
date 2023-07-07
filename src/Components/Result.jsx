@@ -7,8 +7,8 @@ import CircleOutlinedIcon from "@mui/icons-material/CircleOutlined";
 
 const Container = styled.div`
   display: flex;
-  height: 150px;
-  padding: 10px;
+  min-height: 150px;
+  padding: 15px;
   width: 100%;
 `;
 
@@ -16,16 +16,21 @@ const Image = styled.img`
     border  1px solid black;
     border-radius : 5px;
     cursor : pointer;
-    max-width : 35%;
+    width : 30%;
     &:hover {
     opacity : .8; 
     }
 `;
 
 const InfoContainer = styled.div`
+  height: 80%;
   margin-left: 15px;
+  padding: 5px;
   position: relative;
-  bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  // bottom: 15px;
 `;
 
 const Title = styled.h3`
@@ -41,8 +46,8 @@ const Title = styled.h3`
 const SubType = styled.p`
   font-size: 14px;
   color: gray;
-  position: relative;
-  bottom: 20px;
+  // position: relative;
+  // bottom: 20px;
 `;
 
 const NumReviews = styled.p`
@@ -54,8 +59,8 @@ const NumReviews = styled.p`
 const Neighborhood = styled.p`
   font-size: 14px;
   color: gray;
-  position: relative;
-  bottom: 20px;
+  // position: relative;
+  // bottom: 20px;
 `;
 
 const StyledRating = muiStyled(Rating)({
@@ -67,8 +72,8 @@ const StyledRating = muiStyled(Rating)({
 const RatingContainer = styled.div`
   display: flex;
   align-items: center;
-  position: relative;
-  bottom: 20px;
+  // position: relative;
+  // bottom: 20px;
 `;
 
 const Result = ({ data, index, filter }) => {
